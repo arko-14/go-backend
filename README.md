@@ -1,6 +1,6 @@
 # Go Backend Task - User Management API
 
-A high-performance RESTful API built with **Go (Golang)**, designed to manage user records and dynamically calculate age based on Date of Birth (DOB). This project adheres to a clean architecture, separating concerns between HTTP handlers, business logic, and database interactions.
+A high-performance RESTful API built with **Go (Golang)**, designed to manage user records and dynamically calculate age based on Date of Birth (DOB). This project adheres to a clean architecture and supports both local execution and **Dockerized** deployment.
 
 ## 🚀 Tech Stack
 
@@ -11,100 +11,89 @@ A high-performance RESTful API built with **Go (Golang)**, designed to manage us
 | **ORM / SQL** | [SQLC](https://sqlc.dev/) | Compiles SQL to type-safe Go code (no runtime reflection). |
 | **Driver** | [pgx/v5](https://github.com/jackc/pgx) | High-performance PostgreSQL driver and toolkit. |
 | **Logging** | [Uber Zap](https://github.com/uber-go/zap) | Structured, leveled logging for production environments. |
-| **Validation** | [go-playground/validator](https://github.com/go-playground/validator) | Declarative input validation using struct tags. |
+| **Validation** | [validator](https://github.com/go-playground/validator) | Declarative input validation using struct tags. |
 
 ## 📂 Project Structure
-
-This project follows the [Standard Go Project Layout](https://github.com/golang-standards/project-layout):
 
 ```text
 go-backend-task/
 ├── cmd/server/          # Entry point (main.go)
-├── db/
-│   ├── sqlc/            # Auto-generated Go code for database access
-│   └── query.sql        # Raw SQL queries used by SQLC
+├── db/sqlc/             # Auto-generated Go code for database access
 ├── internal/
 │   ├── handler/         # HTTP Layer (Parse request, send response)
-│   ├── service/         # Business Logic (Age calculation, data transformation)
-│   └── models/          # Data Structures (Structs)
-├── go.mod               # Dependencies
-├── README.md            # Project documentation
-└── reasoning.md         # Technical decisions and architecture rationale
+│   ├── service/         # Business Logic (Age calculation)
+│   └── models/          # Data Structures
+├── Dockerfile           # Docker build instructions
+├── docker-compose.yml   # Container orchestration
+└── README.md            # Documentation
 ```
 
-## 🛠️ Setup & Installation
+## 🛠️ How to Run (Choose One)
 
-### 1. Prerequisites
+### Method 1: Docker (Recommended 🐳)
 
-- Go 1.23 or higher
-- PostgreSQL installed and running locally
+This sets up both the API and the Database automatically.
 
-### 2. Database Setup
-
-Run the following SQL commands to create the database and schema:
-
-```sql
-CREATE DATABASE users_db;
-
--- Connect to the database
-\c users_db
-
--- Create the table
-CREATE TABLE users (
-  id BIGSERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  dob DATE NOT NULL
-);
-```
-
-### 3. Configuration
-
-Open `cmd/server/main.go` and update the connection string with your PostgreSQL password:
-
-```go
-const dbSource = "postgresql://postgres:YOUR_PASSWORD@localhost:5432/users_db?sslmode=disable"
-```
-
-### 4. Run the Application
+**Start the Application:**
 
 ```bash
-# Download dependencies
-go mod tidy
-
-# Run the server
-go run cmd/server/main.go
+docker-compose up --build
 ```
 
 The server will start on port 3000.
 
+**Initialize the Database:** (Run this in a new terminal window once the containers are running)
+
+```bash
+docker exec -it postgres_container psql -U postgres -d users_db -c "CREATE TABLE users (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, dob DATE NOT NULL);"
+```
+
+### Method 2: Manual Setup (Local)
+
+**Prerequisites:** Ensure Go 1.23+ and PostgreSQL are installed.
+
+**Database Setup:**
+
+```sql
+CREATE DATABASE users_db;
+\c users_db
+CREATE TABLE users (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, dob DATE NOT NULL);
+```
+
+**Run the Server:**
+
+```bash
+go mod tidy
+go run cmd/server/main.go
+```
+
+**Note:** The application automatically detects if it's running locally and uses the default connection string.
+
 ## 🧪 API Endpoints
 
-### 1. Create User
+| Method | Endpoint | Description | Example Body |
+|:-------|:---------|:------------|:-------------|
+| POST | `/users` | Create User | `{"name": "Alice", "dob": "1990-05-10"}` |
+| GET | `/users/:id` | Get User | Returns user with calculated Age |
+| GET | `/users` | List Users | Returns array of users |
+| PUT | `/users/:id` | Update User | `{"name": "Alice Updated", "dob": "1995-01-01"}` |
+| DELETE | `/users/:id` | Delete User | Returns 204 No Content |
 
-- **Endpoint:** `POST /users`
-- **Body:** `{"name": "Alice", "dob": "1990-05-10"}`
-- **Returns:** Created user object
+### Example Request (cURL)
 
-### 2. Get User (with Age)
+```bash
+curl -X POST http://localhost:3000/users \
+-H "Content-Type: application/json" \
+-d '{"name": "Alice", "dob": "1990-05-10"}'
+```
 
-- **Endpoint:** `GET /users/:id`
-- **Returns:** `{"id": 1, "name": "Alice", "dob": "1990-05-10", "age": 34}`
-- **Note:** The `age` field is calculated dynamically on every request
+## 📝 Technical Decisions
 
-### 3. List All Users
+- **Dual-Mode Configuration:** The application checks for a `DB_SOURCE` environment variable. If present (Docker), it uses that; otherwise, it falls back to local credentials.
 
-- **Endpoint:** `GET /users`
-- **Returns:** Array of user objects
+- **Dynamic Age Calculation:** Age is calculated on-the-fly in the Service layer to ensure accuracy without needing daily database updates.
 
-### 4. Update User
-
-- **Endpoint:** `PUT /users/:id`
-- **Body:** `{"name": "Alice Updated", "dob": "1992-01-01"}`
-
-### 5. Delete User
-
-- **Endpoint:** `DELETE /users/:id`
-- **Returns:** `204 No Content`
+- **Clean Architecture:** Separated handler (HTTP) from service (Logic) to allow easier testing and future scalability.
 
 ## 📖 Documentation
 
